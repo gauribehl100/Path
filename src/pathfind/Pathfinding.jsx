@@ -397,38 +397,32 @@ export default class Pathfinding extends Component {
           </a>
         </nav>
        </div>
-        <table
-          className="grid-container"
-          onMouseLeave={() => this.handleMouseLeave()}>
-          <tbody className="grid">
-            {grid.map((row, rowIdx) => {
-              return (
-                <tr key={rowIdx}>
-                  {row.map((node, nodeIdx) => {
-                    const {row, col, isFinish, isStart, isWall} = node;
-                    return (
-                      <Node
-                        key={nodeIdx}
-                        col={col}
-                        isFinish={isFinish}
-                        isStart={isStart}
-                        isWall={isWall}
-                        mouseIsPressed={mouseIsPressed}
-                        onMouseDown={(row, col) =>
-                          this.handleMouseDown(row, col)
-                        }
-                        onMouseEnter={(row, col) =>
-                          this.handleMouseEnter(row, col)
-                        }
-                        onMouseUp={() => this.handleMouseUp(row, col)}
-                        row={row}></Node>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <table className="grid-container" onMouseLeave={() => this.handleMouseLeave()}>
+  <tbody className="grid">
+    {grid.map((row, rowIdx) => (
+      <tr key={rowIdx}>
+        {row.map((node, nodeIdx) => {
+          const { row, col, isFinish, isStart, isWall } = node;
+          return (
+            <Node
+              key={`${rowIdx}-${nodeIdx}`}
+              col={col}
+              isFinish={isFinish}
+              isStart={isStart}
+              isWall={isWall}
+              mouseIsPressed={mouseIsPressed}
+              onMouseDown={(row, col) => this.handleMouseDown(row, col)}
+              onMouseEnter={(row, col) => this.handleMouseEnter(row, col)}
+              onMouseUp={() => this.handleMouseUp(row, col)}
+              row={row}
+            />
+          );
+        })}
+      </tr>
+    ))}
+  </tbody>
+</table>
+
         <button
           type="button"
           className="btn btn-danger"
