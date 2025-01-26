@@ -1,6 +1,6 @@
 
 import React, {Component} from 'react';
-import Node from './Node/Node';
+import Node from '../pathfind/node/Node';
 import {Dijkstra} from '../algorithms/Dijkstra';
 import {Dfs} from '../algorithms/Dfs';
 import {Bfs} from '../algorithms/Bfs';
