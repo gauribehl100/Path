@@ -395,9 +395,8 @@ export default class Pathfinding extends Component {
           <a className="navbar-brand" href="/">
             <b>PathFinding Visualizer</b>
           </a>
-          </div>
         </nav>
-
+       </div>
         <table
           className="grid-container"
           onMouseLeave={() => this.handleMouseLeave()}>
