@@ -396,7 +396,7 @@ export default class Pathfinding extends Component {
             <b>PathFinding Visualizer</b>
           </a>
         </nav>
-       </div>
+      <div>
       <table className="grid-container" onMouseLeave={() => this.handleMouseLeave()}>
   <tbody className="grid">
     {grid.map((row, rowIdx) => (
@@ -422,7 +422,7 @@ export default class Pathfinding extends Component {
     ))}
   </tbody>
 </table>
-
+      </div>
         <button
           type="button"
           className="btn btn-danger"
