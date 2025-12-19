@@ -1,501 +1,228 @@
-
-import React, {Component} from 'react';
+import React, { useState, useEffect } from 'react';
 import Node from '../pathfind/node/Node';
-import {Dijkstra} from '../algorithms/Dijkstra';
-import {Dfs} from '../algorithms/Dfs';
-import {Bfs} from '../algorithms/Bfs';
+import { Dijkstra } from '../algorithms/Dijkstra';
+import { Dfs } from '../algorithms/Dfs';
+import { Bfs } from '../algorithms/Bfs';
 import './Pathfinding.css';
-export default class Pathfinding extends Component {
-  constructor() {
-    super();
-    this.state = {
-      grid: [],
-      START_NODE_ROW: 5,
-      FINISH_NODE_ROW: 5,
-      START_NODE_COL: 5,
-      FINISH_NODE_COL: 15,
-      mouseIsPressed: false,
-      ROW_COUNT: 25,
-      COLUMN_COUNT: 35,
-      MOBILE_ROW_COUNT: 10,
-      MOBILE_COLUMN_COUNT: 20,
-      isRunning: false,
-      isStartNode: false,
-      isFinishNode: false,
-      isWallNode: false, 
-      currRow: 0,
-      currCol: 0,
-      isDesktopView: true,
-    };
 
-    this.handleMouseDown = this.handleMouseDown.bind(this);
-    this.handleMouseLeave = this.handleMouseLeave.bind(this);
-    this.toggleIsRunning = this.toggleIsRunning.bind(this);
-  }
+export default function Pathfinding() {
 
-  componentDidMount() {
-    const grid = this.getInitialGrid();
-    this.setState({grid});
-  }
+  const [grid, setGrid] = useState([]);
+  const [mouseIsPressed, setMouseIsPressed] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
 
-  toggleIsRunning() {
-    this.setState({isRunning: !this.state.isRunning});
-  }
+  const [isStartNode, setIsStartNode] = useState(false);
+  const [isFinishNode, setIsFinishNode] = useState(false);
+  const [isWallNode, setIsWallNode] = useState(false);
 
-  toggleView() {
-    if (!this.state.isRunning) {
-      this.clearGrid();
-      this.clearWalls();
-      const isDesktopView = !this.state.isDesktopView;
-      let grid;
-      if (isDesktopView) {
-        grid = this.getInitialGrid(
-          this.state.ROW_COUNT,
-          this.state.COLUMN_COUNT,
-        );
-        this.setState({isDesktopView, grid});
-      } else {
-        if (
-          this.state.START_NODE_ROW > this.state.MOBILE_ROW_COUNT ||
-          this.state.FINISH_NODE_ROW > this.state.MOBILE_ROW_COUNT ||
-          this.state.START_NODE_COL > this.state.MOBILE_COLUMN_COUNT ||
-          this.state.FINISH_NODE_COL > this.state.MOBILE_COLUMN_COUNT
-        ) {
-          alert('Start & Finish Nodes Must Be within 10 Rows x 20 Columns');
-        } else {
-          grid = this.getInitialGrid(
-            this.state.MOBILE_ROW_COUNT,
-            this.state.MOBILE_COLUMN_COUNT,
-          );
-          this.setState({isDesktopView, grid});
-        }
-      }
-    }
-  }
+  const [currRow, setCurrRow] = useState(0);
+  const [currCol, setCurrCol] = useState(0);
 
-  /******************** Set up the initial grid ********************/
-  getInitialGrid = (
-    rowCount = this.state.ROW_COUNT,
-    colCount = this.state.COLUMN_COUNT,
-  ) => {
-    const initialGrid = [];
-    for (let row = 0; row < rowCount; row++) {
+  const [START_NODE_ROW, setStartRow] = useState(5);
+  const [START_NODE_COL, setStartCol] = useState(5);
+  const [FINISH_NODE_ROW, setFinishRow] = useState(5);
+  const [FINISH_NODE_COL, setFinishCol] = useState(15);
+
+  const ROW_COUNT = 25;
+  const COLUMN_COUNT = 35;
+
+  /*  INIT GRID */
+
+  useEffect(() => {
+    setGrid(createGrid());
+  }, []);
+
+  function createGrid() {
+    const grid = [];
+    for (let row = 0; row < ROW_COUNT; row++) {
       const currentRow = [];
-      for (let col = 0; col < colCount; col++) {
-        currentRow.push(this.createNode(row, col));
+      for (let col = 0; col < COLUMN_COUNT; col++) {
+        currentRow.push(createNode(row, col));
       }
-      initialGrid.push(currentRow);
+      grid.push(currentRow);
     }
-    return initialGrid;
-  };
+    return grid;
+  }
 
-  createNode = (row, col) => {
+  function createNode(row, col) {
     return {
       row,
       col,
-      isStart:
-        row === this.state.START_NODE_ROW && col === this.state.START_NODE_COL,
-      isFinish:
-        row === this.state.FINISH_NODE_ROW &&
-        col === this.state.FINISH_NODE_COL,
+      isStart: row === START_NODE_ROW && col === START_NODE_COL,
+      isFinish: row === FINISH_NODE_ROW && col === FINISH_NODE_COL,
       distance: Infinity,
-      distanceToFinishNode:
-        Math.abs(this.state.FINISH_NODE_ROW - row) +
-        Math.abs(this.state.FINISH_NODE_COL - col),
       isVisited: false,
       isWall: false,
       previousNode: null,
       isNode: true,
     };
-  };
+  }
 
-  /******************** Control mouse events ********************/
-  handleMouseDown(row, col) {
-    if (!this.state.isRunning) {
-      if (this.isGridClear()) {
-        if (
-          document.getElementById(`node-${row}-${col}`).className ===
-          'node node-start'
-        ) {
-          this.setState({
-            mouseIsPressed: true,
-            isStartNode: true,
-            currRow: row,
-            currCol: col,
-          });
-        } else if (
-          document.getElementById(`node-${row}-${col}`).className ===
-          'node node-finish'
-        ) {
-          this.setState({
-            mouseIsPressed: true,
-            isFinishNode: true,
-            currRow: row,
-            currCol: col,
-          });
-        } else {
-          const newGrid = getNewGridWithWallToggled(this.state.grid, row, col);
-          this.setState({
-            grid: newGrid,
-            mouseIsPressed: true,
-            isWallNode: true,
-            currRow: row,
-            currCol: col,
-          });
-        }
-      } else {
-        this.clearGrid();
-      }
+  /*  MOUSE EVENTS  */
+
+  function mouseDown(row, col) {
+    if (isRunning) return;
+
+    const className = document.getElementById(`node-${row}-${col}`).className;
+
+    setMouseIsPressed(true);
+    setCurrRow(row);
+    setCurrCol(col);
+
+    if (className === 'node node-start') {
+      setIsStartNode(true);
+    }
+    else if (className === 'node node-finish') {
+      setIsFinishNode(true);
+    }
+    else {
+      setIsWallNode(true);
+      setGrid(toggleWall(grid, row, col));
     }
   }
 
-  isGridClear() {
-    for (const row of this.state.grid) {
-      for (const node of row) {
-        const nodeClassName = document.getElementById(
-          `node-${node.row}-${node.col}`,
-        ).className;
-        if (
-          nodeClassName === 'node node-visited' ||
-          nodeClassName === 'node node-shortest-path'
-        ) {
-          return false;
-        }
-      }
+  function mouseEnter(row, col) {
+    if (!mouseIsPressed || isRunning) return;
+
+    const className = document.getElementById(`node-${row}-${col}`).className;
+
+    if (isStartNode && className !== 'node node-wall') {
+      document.getElementById(`node-${currRow}-${currCol}`).className = 'node';
+      document.getElementById(`node-${row}-${col}`).className = 'node node-start';
+      setCurrRow(row);
+      setCurrCol(col);
+      setStartRow(row);
+      setStartCol(col);
     }
-    return true;
-  }
 
-  handleMouseEnter(row, col) {
-    if (!this.state.isRunning) {
-      if (this.state.mouseIsPressed) {
-        const nodeClassName = document.getElementById(`node-${row}-${col}`)
-          .className;
-        if (this.state.isStartNode) {
-          if (nodeClassName !== 'node node-wall') {
-            const prevStartNode = this.state.grid[this.state.currRow][
-              this.state.currCol
-            ];
-            prevStartNode.isStart = false;
-            document.getElementById(
-              `node-${this.state.currRow}-${this.state.currCol}`,
-            ).className = 'node';
+    else if (isFinishNode && className !== 'node node-wall') {
+      document.getElementById(`node-${currRow}-${currCol}`).className = 'node';
+      document.getElementById(`node-${row}-${col}`).className = 'node node-finish';
+      setCurrRow(row);
+      setCurrCol(col);
+      setFinishRow(row);
+      setFinishCol(col);
+    }
 
-            this.setState({currRow: row, currCol: col});
-            const currStartNode = this.state.grid[row][col];
-            currStartNode.isStart = true;
-            document.getElementById(`node-${row}-${col}`).className =
-              'node node-start';
-          }
-          this.setState({START_NODE_ROW: row, START_NODE_COL: col});
-        } else if (this.state.isFinishNode) {
-          if (nodeClassName !== 'node node-wall') {
-            const prevFinishNode = this.state.grid[this.state.currRow][
-              this.state.currCol
-            ];
-            prevFinishNode.isFinish = false;
-            document.getElementById(
-              `node-${this.state.currRow}-${this.state.currCol}`,
-            ).className = 'node';
-
-            this.setState({currRow: row, currCol: col});
-            const currFinishNode = this.state.grid[row][col];
-            currFinishNode.isFinish = true;
-            document.getElementById(`node-${row}-${col}`).className =
-              'node node-finish';
-          }
-          this.setState({FINISH_NODE_ROW: row, FINISH_NODE_COL: col});
-        } else if (this.state.isWallNode) {
-          const newGrid = getNewGridWithWallToggled(this.state.grid, row, col);
-          this.setState({grid: newGrid});
-        }
-      }
+    else if (isWallNode) {
+      setGrid(toggleWall(grid, row, col));
     }
   }
 
-  handleMouseUp(row, col) {
-    if (!this.state.isRunning) {
-      this.setState({mouseIsPressed: false});
-      if (this.state.isStartNode) {
-        const isStartNode = !this.state.isStartNode;
-        this.setState({isStartNode, START_NODE_ROW: row, START_NODE_COL: col});
-      } else if (this.state.isFinishNode) {
-        const isFinishNode = !this.state.isFinishNode;
-        this.setState({
-          isFinishNode,
-          FINISH_NODE_ROW: row,
-          FINISH_NODE_COL: col,
-        });
-      }
-      this.getInitialGrid();
+  function mouseUp() {
+    setMouseIsPressed(false);
+    setIsStartNode(false);
+    setIsFinishNode(false);
+    setIsWallNode(false);
+  }
+
+  /* CLEAR */
+
+  function clearGrid() {
+    if (!isRunning) {
+      setGrid(createGrid());
     }
   }
 
-  handleMouseLeave() {
-    if (this.state.isStartNode) {
-      const isStartNode = !this.state.isStartNode;
-      this.setState({isStartNode, mouseIsPressed: false});
-    } else if (this.state.isFinishNode) {
-      const isFinishNode = !this.state.isFinishNode;
-      this.setState({isFinishNode, mouseIsPressed: false});
-    } else if (this.state.isWallNode) {
-      const isWallNode = !this.state.isWallNode;
-      this.setState({isWallNode, mouseIsPressed: false});
-      this.getInitialGrid();
-    }
-  }
+  function clearWalls() {
+    if (isRunning) return;
 
-  /******************** Clear Board/Walls ********************/
-
-  clearGrid() {
-    if (!this.state.isRunning) {
-      const newGrid = this.state.grid.slice();
-      for (const row of newGrid) {
-        for (const node of row) {
-          let nodeClassName = document.getElementById(
-            `node-${node.row}-${node.col}`,
-          ).className;
-          if (
-            nodeClassName !== 'node node-start' &&
-            nodeClassName !== 'node node-finish' &&
-            nodeClassName !== 'node node-wall'
-          ) {
-            document.getElementById(`node-${node.row}-${node.col}`).className =
-              'node';
-            node.isVisited = false;
-            node.distance = Infinity;
-            node.distanceToFinishNode =
-              Math.abs(this.state.FINISH_NODE_ROW - node.row) +
-              Math.abs(this.state.FINISH_NODE_COL - node.col);
-          }
-          if (nodeClassName === 'node node-finish') {
-            node.isVisited = false;
-            node.distance = Infinity;
-            node.distanceToFinishNode = 0;
-          }
-          if (nodeClassName === 'node node-start') {
-            node.isVisited = false;
-            node.distance = Infinity;
-            node.distanceToFinishNode =
-              Math.abs(this.state.FINISH_NODE_ROW - node.row) +
-              Math.abs(this.state.FINISH_NODE_COL - node.col);
-            node.isStart = true;
-            node.isWall = false;
-            node.previousNode = null;
-            node.isNode = true;
-          }
-        }
-      }
-    }
-  }
-
-  clearWalls() {
-    if (!this.state.isRunning) {
-      const newGrid = this.state.grid.slice();
-      for (const row of newGrid) {
-        for (const node of row) {
-          let nodeClassName = document.getElementById(
-            `node-${node.row}-${node.col}`,
-          ).className;
-          if (nodeClassName === 'node node-wall') {
-            document.getElementById(`node-${node.row}-${node.col}`).className =
-              'node';
-            node.isWall = false;
-          }
-        }
-      }
-    }
-  }
-
-  /******************** Create Animations ********************/
-  visualize(algo) {
-    if (!this.state.isRunning) {
-      this.clearGrid();
-      this.toggleIsRunning();
-      const {grid} = this.state;
-      const startNode =
-        grid[this.state.START_NODE_ROW][this.state.START_NODE_COL];
-      const finishNode =
-        grid[this.state.FINISH_NODE_ROW][this.state.FINISH_NODE_COL];
-      let visitedNodesInOrder;
-      switch (algo) {
-        case 'Dijkstra':
-          visitedNodesInOrder = Dijkstra(grid, startNode, finishNode);
-  break;
-        case 'BFS':
-          visitedNodesInOrder = Bfs(grid, startNode, finishNode);
-          break;
-        case 'DFS':
-          visitedNodesInOrder = Dfs(grid, startNode, finishNode);
-          break;
-        default:
-          // should never get here
-          break;
-      }
-      const nodesInShortestPathOrder = getNodesInShortestPathOrder(finishNode);
-      nodesInShortestPathOrder.push('end');
-      this.animate(visitedNodesInOrder, nodesInShortestPathOrder);
-    }
-  }
-
-  animate(visitedNodesInOrder, nodesInShortestPathOrder) {
-    for (let i = 0; i <= visitedNodesInOrder.length; i++) {
-      if (i === visitedNodesInOrder.length) {
-        setTimeout(() => {
-          this.animateShortestPath(nodesInShortestPathOrder);
-        }, 10 * i);
-        return;
-      }
-      setTimeout(() => {
-        const node = visitedNodesInOrder[i];
-        const nodeClassName = document.getElementById(
-          `node-${node.row}-${node.col}`,
-        ).className;
-        if (
-          nodeClassName !== 'node node-start' &&
-          nodeClassName !== 'node node-finish'
-        ) {
-          document.getElementById(`node-${node.row}-${node.col}`).className =
-            'node node-visited';
-        }
-      }, 10 * i);
-    }
-  }
-
-  /******************** Create path from start to finish ********************/
-  animateShortestPath(nodesInShortestPathOrder) {
-    for (let i = 0; i < nodesInShortestPathOrder.length; i++) {
-      if (nodesInShortestPathOrder[i] === 'end') {
-        setTimeout(() => {
-          this.toggleIsRunning();
-        }, i * 50);
-      } else {
-        setTimeout(() => {
-          const node = nodesInShortestPathOrder[i];
-          const nodeClassName = document.getElementById(
-            `node-${node.row}-${node.col}`,
-          ).className;
-          if (
-            nodeClassName !== 'node node-start' &&
-            nodeClassName !== 'node node-finish'
-          ) {
-            document.getElementById(`node-${node.row}-${node.col}`).className =
-              'node node-shortest-path';
-          }
-        }, i * 40);
-      }
-    }
-  }
-
-  render() {
-    const {grid, mouseIsPressed} = this.state;
-    return (
-      <div>
-        <nav className="navbar navbar-expand-lg navbar-dark bg-dark ">
-          <a className="navbar-brand" href="/">
-            <b>PathFinding Visualizer</b>
-          </a>
-        </nav>
-      <div>
-      <table className="grid-container" onMouseLeave={() => this.handleMouseLeave()}>
-  <tbody className="grid">
-    {grid.map((row, rowIdx) => (
-      <tr key={rowIdx}>
-        {row.map((node, nodeIdx) => {
-          const { row, col, isFinish, isStart, isWall } = node;
-          return (
-            <Node
-              key={`${rowIdx}-${nodeIdx}`}
-              col={col}
-              isFinish={isFinish}
-              isStart={isStart}
-              isWall={isWall}
-              mouseIsPressed={mouseIsPressed}
-              onMouseDown={(row, col) => this.handleMouseDown(row, col)}
-              onMouseEnter={(row, col) => this.handleMouseEnter(row, col)}
-              onMouseUp={() => this.handleMouseUp(row, col)}
-              row={row}
-            />
-          );
-        })}
-      </tr>
-    ))}
-  </tbody>
-</table>
-      </div>
-        <button
-          type="button"
-          className="btn btn-danger"
-          onClick={() => this.clearGrid()}>
-          Clear Grid
-        </button>
-        <button
-          type="button"
-          className="btn btn-warning"
-          onClick={() => this.clearWalls()}>
-          Clear Walls
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => this.visualize('Dijkstra')}>
-          Dijkstra's
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => this.visualize('BFS')}>
-          Bread First Search
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => this.visualize('DFS')}>
-          Depth First Search
-        </button>
-        {this.state.isDesktopView ? (
-          <button
-            type="button"
-            className="btn btn-light"
-            onClick={() => this.toggleView()}>
-            Mobile View
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-dark"
-            onClick={() => this.toggleView()}>
-            Desktop View
-          </button>
-        )}
-      </div>
+    const newGrid = grid.map(row =>
+      row.map(node => ({ ...node, isWall: false }))
     );
+    setGrid(newGrid);
   }
+
+  /*  VISUALIZING*/
+
+  function visualize(algo) {
+    if (isRunning) return;
+
+    setIsRunning(true);
+
+    const startNode = grid[START_NODE_ROW][START_NODE_COL];
+    const finishNode = grid[FINISH_NODE_ROW][FINISH_NODE_COL];
+
+    let visited;
+    if (algo === 'Dijkstra') visited = Dijkstra(grid, startNode, finishNode);
+    if (algo === 'BFS') visited = Bfs(grid, startNode, finishNode);
+    if (algo === 'DFS') visited = Dfs(grid, startNode, finishNode);
+
+    const path = getPath(finishNode);
+    animate(visited, path);
+  }
+
+  function animate(visited, path) {
+    visited.forEach((node, i) => {
+      setTimeout(() => {
+        const el = document.getElementById(`node-${node.row}-${node.col}`);
+        if (el && !el.className.includes('start') && !el.className.includes('finish')) {
+          el.className = 'node node-visited';
+        }
+      }, i * 10);
+    });
+
+    setTimeout(() => {
+      path.forEach((node, i) => {
+        setTimeout(() => {
+          const el = document.getElementById(`node-${node.row}-${node.col}`);
+          if (el && !el.className.includes('start') && !el.className.includes('finish')) {
+            el.className = 'node node-shortest-path';
+          }
+          if (i === path.length - 1) setIsRunning(false);
+        }, i * 40);
+      });
+    }, visited.length * 10);
+  }
+
+  /*  RENDER */
+
+  return (
+    <div>
+      <table className="grid-container" onMouseLeave={mouseUp}>
+        <tbody className="grid">
+          {grid.map((row, r) => (
+            <tr key={r}>
+              {row.map((node, c) => (
+                <Node
+                  key={`${r}-${c}`}
+                  {...node}
+                  onMouseDown={() => mouseDown(node.row, node.col)}
+                  onMouseEnter={() => mouseEnter(node.row, node.col)}
+                  onMouseUp={mouseUp}
+                />
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <button onClick={clearGrid}>Clear Grid</button>
+      <button onClick={clearWalls}>Clear Walls</button>
+      <button onClick={() => visualize('Dijkstra')}>Dijkstra</button>
+      <button onClick={() => visualize('BFS')}>BFS</button>
+      <button onClick={() => visualize('DFS')}>DFS</button>
+    </div>
+  );
 }
 
-/******************** Create Walls ********************/
-const getNewGridWithWallToggled = (grid, row, col) => {
-  // mouseDown starts to act strange if I don't make newGrid and work off of grid instead.
+/*  HELPERS */
+
+function toggleWall(grid, row, col) {
   const newGrid = grid.slice();
   const node = newGrid[row][col];
-  if (!node.isStart && !node.isFinish && node.isNode) {
-    const newNode = {
-      ...node,
-      isWall: !node.isWall,
-    };
-    newGrid[row][col] = newNode;
+  if (!node.isStart && !node.isFinish) {
+    newGrid[row][col] = { ...node, isWall: !node.isWall };
   }
   return newGrid;
-};
+}
 
-// Backtracks from the finishNode to find the shortest path.
-// Only works when called after the pathfinding methods.
-function getNodesInShortestPathOrder(finishNode) {
-  const nodesInShortestPathOrder = [];
-  let currentNode = finishNode;
-  while (currentNode !== null) {
-    nodesInShortestPathOrder.unshift(currentNode);
-    currentNode = currentNode.previousNode;
+function getPath(finishNode) {
+  const path = [];
+  let current = finishNode;
+  while (current) {
+    path.unshift(current);
+    current = current.previousNode;
   }
-  return nodesInShortestPathOrder;
+  return path;
 }
