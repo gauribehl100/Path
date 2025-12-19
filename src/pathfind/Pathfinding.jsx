@@ -1,185 +1,196 @@
 import React, { useState, useEffect } from 'react';
 import Node from '../pathfind/node/Node';
 import { Dijkstra } from '../algorithms/Dijkstra';
-import { Dfs } from '../algorithms/Dfs';
 import { Bfs } from '../algorithms/Bfs';
+import { Dfs } from '../algorithms/Dfs';
 import './Pathfinding.css';
 
 export default function Pathfinding() {
 
+  const ROWS = 25;
+  const COLS = 35;
+
   const [grid, setGrid] = useState([]);
-  const [mouseIsPressed, setMouseIsPressed] = useState(false);
-  const [isRunning, setIsRunning] = useState(false);
+  const [mouseDown, setMouseDown] = useState(false);
+  const [mode, setMode] = useState(null); // 'start' | 'finish' | 'wall'
+  const [running, setRunning] = useState(false);
 
-  const [isStartNode, setIsStartNode] = useState(false);
-  const [isFinishNode, setIsFinishNode] = useState(false);
-  const [isWallNode, setIsWallNode] = useState(false);
+  const [start, setStart] = useState({ row: 5, col: 5 });
+  const [finish, setFinish] = useState({ row: 5, col: 15 });
 
-  const [currRow, setCurrRow] = useState(0);
-  const [currCol, setCurrCol] = useState(0);
-
-  const [START_NODE_ROW, setStartRow] = useState(5);
-  const [START_NODE_COL, setStartCol] = useState(5);
-  const [FINISH_NODE_ROW, setFinishRow] = useState(5);
-  const [FINISH_NODE_COL, setFinishCol] = useState(15);
-
-  const ROW_COUNT = 25;
-  const COLUMN_COUNT = 35;
-
-  /*  INIT GRID */
+  /* ---------- INIT GRID ---------- */
 
   useEffect(() => {
-    setGrid(createGrid());
+    setGrid(buildGrid(start, finish));
   }, []);
 
-  function createGrid() {
-    const grid = [];
-    for (let row = 0; row < ROW_COUNT; row++) {
-      const currentRow = [];
-      for (let col = 0; col < COLUMN_COUNT; col++) {
-        currentRow.push(createNode(row, col));
+  function buildGrid(start, finish) {
+    const g = [];
+    for (let r = 0; r < ROWS; r++) {
+      const row = [];
+      for (let c = 0; c < COLS; c++) {
+        row.push({
+          row: r,
+          col: c,
+          isStart: r === start.row && c === start.col,
+          isFinish: r === finish.row && c === finish.col,
+          isWall: false,
+          isVisited: false,
+          distance: Infinity,
+          previousNode: null,
+        });
       }
-      grid.push(currentRow);
+      g.push(row);
     }
-    return grid;
+    return g;
   }
 
-  function createNode(row, col) {
-    return {
-      row,
-      col,
-      isStart: row === START_NODE_ROW && col === START_NODE_COL,
-      isFinish: row === FINISH_NODE_ROW && col === FINISH_NODE_COL,
-      distance: Infinity,
-      isVisited: false,
-      isWall: false,
-      previousNode: null,
-      isNode: true,
-    };
-  }
+  /* ---------- MOUSE EVENTS ---------- */
 
-  /*  MOUSE EVENTS  */
+  function onDown(row, col) {
+    if (running) return;
 
-  function mouseDown(row, col) {
-    if (isRunning) return;
+    const node = grid[row][col];
+    setMouseDown(true);
 
-    const className = document.getElementById(`node-${row}-${col}`).className;
-
-    setMouseIsPressed(true);
-    setCurrRow(row);
-    setCurrCol(col);
-
-    if (className === 'node node-start') {
-      setIsStartNode(true);
-    }
-    else if (className === 'node node-finish') {
-      setIsFinishNode(true);
-    }
+    if (node.isStart) setMode('start');
+    else if (node.isFinish) setMode('finish');
     else {
-      setIsWallNode(true);
-      setGrid(toggleWall(grid, row, col));
+      setMode('wall');
+      toggleWall(row, col);
     }
   }
 
-  function mouseEnter(row, col) {
-    if (!mouseIsPressed || isRunning) return;
+  function onEnter(row, col) {
+    if (!mouseDown || running) return;
 
-    const className = document.getElementById(`node-${row}-${col}`).className;
+    if (mode === 'wall') toggleWall(row, col);
 
-    if (isStartNode && className !== 'node node-wall') {
-      document.getElementById(`node-${currRow}-${currCol}`).className = 'node';
-      document.getElementById(`node-${row}-${col}`).className = 'node node-start';
-      setCurrRow(row);
-      setCurrCol(col);
-      setStartRow(row);
-      setStartCol(col);
-    }
+    if (mode === 'start') moveStart(row, col);
 
-    else if (isFinishNode && className !== 'node node-wall') {
-      document.getElementById(`node-${currRow}-${currCol}`).className = 'node';
-      document.getElementById(`node-${row}-${col}`).className = 'node node-finish';
-      setCurrRow(row);
-      setCurrCol(col);
-      setFinishRow(row);
-      setFinishCol(col);
-    }
-
-    else if (isWallNode) {
-      setGrid(toggleWall(grid, row, col));
-    }
+    if (mode === 'finish') moveFinish(row, col);
   }
 
-  function mouseUp() {
-    setMouseIsPressed(false);
-    setIsStartNode(false);
-    setIsFinishNode(false);
-    setIsWallNode(false);
+  function onUp() {
+    setMouseDown(false);
+    setMode(null);
   }
 
-  /* CLEAR */
+  /* ---------- GRID UPDATES ---------- */
+
+  function toggleWall(row, col) {
+    setGrid(g =>
+      g.map(r =>
+        r.map(n =>
+          n.row === row && n.col === col && !n.isStart && !n.isFinish
+            ? { ...n, isWall: !n.isWall }
+            : n
+        )
+      )
+    );
+  }
+
+  function moveStart(row, col) {
+    setGrid(g =>
+      g.map(r =>
+        r.map(n => ({
+          ...n,
+          isStart: n.row === row && n.col === col,
+        }))
+      )
+    );
+    setStart({ row, col });
+  }
+
+  function moveFinish(row, col) {
+    setGrid(g =>
+      g.map(r =>
+        r.map(n => ({
+          ...n,
+          isFinish: n.row === row && n.col === col,
+        }))
+      )
+    );
+    setFinish({ row, col });
+  }
+
+  /* ---------- CLEAR ---------- */
 
   function clearGrid() {
-    if (!isRunning) {
-      setGrid(createGrid());
-    }
+    if (!running) setGrid(buildGrid(start, finish));
   }
 
   function clearWalls() {
-    if (isRunning) return;
-
-    const newGrid = grid.map(row =>
-      row.map(node => ({ ...node, isWall: false }))
-    );
-    setGrid(newGrid);
+    if (running) return;
+    setGrid(g => g.map(r => r.map(n => ({ ...n, isWall: false }))));
   }
 
-  /*  VISUALIZING*/
+  /* ---------- VISUALIZATION ---------- */
 
-  function visualize(algo) {
-    if (isRunning) return;
+  function visualize(type) {
+    if (running) return;
+    setRunning(true);
 
-    setIsRunning(true);
-
-    const startNode = grid[START_NODE_ROW][START_NODE_COL];
-    const finishNode = grid[FINISH_NODE_ROW][FINISH_NODE_COL];
+    const startNode = grid[start.row][start.col];
+    const finishNode = grid[finish.row][finish.col];
 
     let visited;
-    if (algo === 'Dijkstra') visited = Dijkstra(grid, startNode, finishNode);
-    if (algo === 'BFS') visited = Bfs(grid, startNode, finishNode);
-    if (algo === 'DFS') visited = Dfs(grid, startNode, finishNode);
+    if (type === 'Dijkstra') visited = Dijkstra(grid, startNode, finishNode);
+    if (type === 'BFS') visited = Bfs(grid, startNode, finishNode);
+    if (type === 'DFS') visited = Dfs(grid, startNode, finishNode);
 
-    const path = getPath(finishNode);
+    const path = buildPath(finishNode);
     animate(visited, path);
   }
 
   function animate(visited, path) {
     visited.forEach((node, i) => {
       setTimeout(() => {
-        const el = document.getElementById(`node-${node.row}-${node.col}`);
-        if (el && !el.className.includes('start') && !el.className.includes('finish')) {
-          el.className = 'node node-visited';
-        }
+        setGrid(g =>
+          g.map(r =>
+            r.map(n =>
+              n.row === node.row && n.col === node.col
+                ? { ...n, isVisited: true }
+                : n
+            )
+          )
+        );
       }, i * 10);
     });
 
     setTimeout(() => {
       path.forEach((node, i) => {
         setTimeout(() => {
-          const el = document.getElementById(`node-${node.row}-${node.col}`);
-          if (el && !el.className.includes('start') && !el.className.includes('finish')) {
-            el.className = 'node node-shortest-path';
-          }
-          if (i === path.length - 1) setIsRunning(false);
+          setGrid(g =>
+            g.map(r =>
+              r.map(n =>
+                n.row === node.row && n.col === node.col
+                  ? { ...n, isPath: true }
+                  : n
+              )
+            )
+          );
+          if (i === path.length - 1) setRunning(false);
         }, i * 40);
       });
     }, visited.length * 10);
   }
 
-  /*  RENDER */
+  function buildPath(end) {
+    const path = [];
+    let cur = end;
+    while (cur) {
+      path.unshift(cur);
+      cur = cur.previousNode;
+    }
+    return path;
+  }
+
+  /* ---------- RENDER ---------- */
 
   return (
     <div>
-      <table className="grid-container" onMouseLeave={mouseUp}>
+      <table className="grid-container" onMouseLeave={onUp}>
         <tbody className="grid">
           {grid.map((row, r) => (
             <tr key={r}>
@@ -187,9 +198,9 @@ export default function Pathfinding() {
                 <Node
                   key={`${r}-${c}`}
                   {...node}
-                  onMouseDown={() => mouseDown(node.row, node.col)}
-                  onMouseEnter={() => mouseEnter(node.row, node.col)}
-                  onMouseUp={mouseUp}
+                  onMouseDown={() => onDown(node.row, node.col)}
+                  onMouseEnter={() => onEnter(node.row, node.col)}
+                  onMouseUp={onUp}
                 />
               ))}
             </tr>
@@ -204,25 +215,4 @@ export default function Pathfinding() {
       <button onClick={() => visualize('DFS')}>DFS</button>
     </div>
   );
-}
-
-/*  HELPERS */
-
-function toggleWall(grid, row, col) {
-  const newGrid = grid.slice();
-  const node = newGrid[row][col];
-  if (!node.isStart && !node.isFinish) {
-    newGrid[row][col] = { ...node, isWall: !node.isWall };
-  }
-  return newGrid;
-}
-
-function getPath(finishNode) {
-  const path = [];
-  let current = finishNode;
-  while (current) {
-    path.unshift(current);
-    current = current.previousNode;
-  }
-  return path;
 }
